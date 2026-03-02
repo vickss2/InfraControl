@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 style="font-weight: 700; color: #333;">Editar Cadastro do Cliente</h2>
+        <a href="{{ url_for('clientes') }}" class="btn btn-light" style="border-radius: 10px;">Voltar</a>
+    </div>
+
+    <div class="card border-0 shadow-sm p-4" style="border-radius: 25px; max-width: 600px; margin: 0 auto;">
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">NOME DO CLIENTE</label>
+                <input type="text" name="nome" class="form-control" style="border-radius: 12px; padding: 12px;" value="{{ cliente.nome }}" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">E-MAIL PARA CONTATO</label>
+                <input type="email" name="email" class="form-control" style="border-radius: 12px; padding: 12px;" value="{{ cliente.email }}" required>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-muted small fw-bold">TELEFONE / WHATSAPP</label>
+                <input type="text" name="telefone" class="form-control" style="border-radius: 12px; padding: 12px;" value="{{ cliente.telefone }}" required>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary" style="background: var(--primary); border: none; border-radius: 12px; padding: 15px; font-weight: 700;">
+                    Atualizar Informações
+                </button>
+                <p class="text-center text-muted small mt-2">As alterações serão salvas imediatamente no banco de dados.</p>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

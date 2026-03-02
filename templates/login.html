@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>InfraControl - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #ff85a1; --accent: #fbc2eb; --white: #ffffff; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%); display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        .login-container { 
+            background: var(--white); width: 850px; height: 480px; border-radius: 30px; 
+            display: flex; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.15); 
+        }
+
+        /* Lado Visual Esquerdo */
+        .side-visual { 
+            background: var(--primary); width: 40%; color: white; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px; 
+        }
+        .side-visual h1 { font-size: 2.5rem; margin-bottom: 10px; font-weight: 800; }
+
+        /* Lado do Formulário Direto */
+        .form-area { width: 60%; padding: 60px; display: flex; flex-direction: column; justify-content: center; }
+        .form-area h2 { font-size: 1.8rem; margin-bottom: 30px; color: #333; text-align: center; }
+
+        .input-box { width: 100%; margin-bottom: 20px; }
+        .input-box input { 
+            width: 100%; padding: 15px; border-radius: 12px; border: 2px solid #eee; 
+            background: #f9f9f9; outline: none; transition: 0.3s; box-sizing: border-box;
+        }
+        .input-box input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 8px rgba(255,133,161,0.2); }
+
+        .btn-entrar { 
+            width: 100%; padding: 16px; border: none; border-radius: 12px; 
+            background: var(--primary); color: white; font-size: 1.1rem; font-weight: 700; 
+            cursor: pointer; transition: 0.3s; 
+        }
+        .btn-entrar:hover { background: #ef7491; transform: translateY(-2px); }
+        .btn-entrar:active { transform: scale(0.98); }
+
+        /* Animação de Erro */
+        .shake { animation: shakeAnim 0.4s; }
+        @keyframes shakeAnim {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container" id="box">
+        <div class="side-visual">
+            <h1>InfraControl</h1>
+            <p>Gestão Técnica Profissional</p>
+        </div>
+
+        <form class="form-area" method="POST" id="loginForm">
+            <h2>Bem-vindo!</h2>
+            
+            <div class="input-box">
+                <input type="text" name="username" id="user" placeholder="Usuário" required>
+            </div>
+            
+            <div class="input-box">
+                <input type="password" name="password" id="pass" placeholder="Senha" required>
+            </div>
+
+            <button type="submit" class="btn-entrar" id="btn">Entrar no Sistema</button>
+            
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                <p id="error-msg" style="color: #ff4757; text-align: center; margin-top: 15px; font-size: 0.9rem;">
+                    Usuário ou senha incorretos.
+                </p>
+              {% endif %}
+            {% endwith %}
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const box = document.getElementById('box');
+
+        form.onsubmit = function() {
+            // Interatividade: Botão muda texto ao clicar
+            const btn = document.getElementById('btn');
+            btn.innerText = "Verificando...";
+            btn.style.opacity = "0.7";
+        };
+
+        // Se houver mensagem de erro do Flask, faz o box tremer
+        if (document.getElementById('error-msg')) {
+            box.classList.add('shake');
+            setTimeout(() => box.classList.remove('shake'), 400);
+        }
+    </script>
+</body>
+</html>

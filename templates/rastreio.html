@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acompanhe seu Serviço - InfraControl</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .rastreio-card { background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); padding: 50px; width: 100%; max-width: 600px; }
+        .brand { color: #ff85a1; font-weight: 800; font-size: 2.2rem; text-align: center; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #6c757d; margin-bottom: 40px; font-weight: 600; }
+        .status-badge { font-size: 1.1rem; padding: 12px 25px; border-radius: 30px; letter-spacing: 0.5px; }
+        .input-group-lg > .form-control { border-radius: 15px 0 0 15px; border: 2px solid #eee; border-right: none; font-weight: 600;}
+        .input-group-lg > .form-control:focus { border-color: #ff85a1; box-shadow: none; }
+        .btn-busca { background: var(--bs-primary); border: none; border-radius: 0 15px 15px 0; font-weight: 700; padding: 0 30px; background-color: #ff85a1;}
+        .btn-busca:hover { background-color: #ff6b8b; }
+    </style>
+</head>
+<body>
+
+    <div class="container d-flex justify-content-center px-3">
+        <div class="rastreio-card">
+            <div class="brand">InfraControl</div>
+            <div class="subtitle">Portal do Cliente</div>
+            
+            <form method="POST" class="mb-4">
+                <div class="input-group input-group-lg shadow-sm" style="border-radius: 15px;">
+                    <input type="text" name="busca" class="form-control" placeholder="Digite o Protocolo (ID) ou seu Telefone" required>
+                    <button class="btn btn-busca text-white" type="submit">Localizar 🔍</button>
+                </div>
+            </form>
+
+            {% if erro %}
+                <div class="alert alert-danger text-center" style="border-radius: 12px; font-weight: 600;">{{ erro }}</div>
+            {% endif %}
+
+            {% if os_data %}
+                <div class="mt-4 p-4" style="background: #fff5f7; border: 2px solid #ffe3e9; border-radius: 20px;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold m-0" style="color: #333;">Protocolo #{{ os_data.id }}</h5>
+                        <span class="badge bg-light text-muted border">Data de Entrada: Hoje</span>
+                    </div>
+                    
+                    <p class="mb-1 text-dark" style="font-size: 1.1rem;"><strong>Equipamento:</strong> {{ os_data.equipamento }}</p>
+                    <p class="mb-4 text-muted"><strong>Cliente titular:</strong> {{ os_data.cliente.nome }}</p>
+                    
+                    <h6 class="fw-bold mt-4 mb-3 text-center" style="color: #333;">Status Atualizado:</h6>
+                    <div class="d-flex justify-content-center mb-4">
+                        <span class="badge bg-{{ os_data.estilo }} status-badge shadow-sm">{{ os_data.status }}</span>
+                    </div>
+
+                    <div class="progress shadow-sm" style="height: 15px; border-radius: 20px; background-color: #ffe3e9;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-{{ os_data.estilo }}" role="progressbar" style="width: {{ os_data.nivel }}%;"></div>
+                    </div>
+                    
+                    {% if os_data.status == 'Finalizado' or os_data.status == 'Pronto para Retirada' %}
+                        <div class="alert mt-4 text-center" style="border-radius: 15px; background-color: #d1e7dd; color: #0f5132; border: 2px solid #badbcc;">
+                            <strong>✅ Equipamento Liberado!</strong><br>
+                            O seu serviço está pronto. O valor total ficou em <strong>R$ {{ "%.2f"|format(os_data.valor) }}</strong>.
+                        </div>
+                    {% else %}
+                        <div class="alert mt-4 text-center" style="border-radius: 15px; background-color: #fff3cd; color: #664d03; border: 2px solid #ffecb5;">
+                            <strong>⏳ Em andamento...</strong><br>
+                            Seus técnicos estão trabalhando no equipamento. Aguarde aviso via WhatsApp para retirada.
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+            
+            <div class="text-center mt-5">
+                <a href="{{ url_for('login') }}" class="text-muted text-decoration-none fw-bold" style="font-size: 0.9rem; border-bottom: 1px dashed #ccc;">🔒 Acesso Restrito (Técnicos)</a>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
