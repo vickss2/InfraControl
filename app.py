@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash # Importamos a Segurança Máxima
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Cliente, OrdemServico
@@ -118,13 +119,11 @@ def atualizar_status(id):
     ordem = OrdemServico.query.get_or_404(id); ordem.status = request.form.get('status'); db.session.commit(); flash('Status atualizado!', 'info')
     return redirect(url_for('ordens'))
 
-# AQUI ESTÁ A MÁGICA DA GARANTIA
 @app.route('/finalizar_os/<int:os_id>')
 @login_required
 def finalizar_os(os_id):
     os_data = OrdemServico.query.get_or_404(os_id)
     os_data.status = 'Finalizado'
-    # Calcula 90 dias a partir de agora e salva
     os_data.data_garantia = datetime.now() + timedelta(days=90)
     db.session.commit()
     flash('Serviço entregue! Garantia de 90 dias ativada.', 'success')
@@ -136,15 +135,15 @@ def excluir_os(id):
     db.session.delete(OrdemServico.query.get_or_404(id)); db.session.commit(); flash('Excluída!', 'success')
     return redirect(url_for('ordens'))
 
-# --- HISTÓRICO COM CONTROLE DE GARANTIA ---
+# --- HISTÓRICO ---
 @app.route('/historico')
 @login_required
 def historico():
     concluidas = OrdemServico.query.filter_by(status='Finalizado').order_by(OrdemServico.id.desc()).all()
-    hoje = datetime.now() # Enviamos o dia de hoje para o HTML comparar
+    hoje = datetime.now()
     return render_template('historico.html', ordens=concluidas, hoje=hoje)
 
-# --- PDF E LOGIN ---
+# --- PDF E LOGIN BLINDADO ---
 @app.route('/gerar_pdf/<int:os_id>')
 @login_required
 def gerar_pdf(os_id):
@@ -156,10 +155,9 @@ def gerar_pdf(os_id):
     pdf.cell(0, 10, f"Protocolo: #{os_data.id} | Status: {os_data.status}", new_x="LMARGIN", new_y="NEXT")
     pdf.multi_cell(190, 10, f"Cliente: {os_data.cliente.nome}\nEquipamento: {os_data.equipamento}\nDiagnostico: {os_data.diagnostico_ia}", border=1)
     
-    # Se tiver garantia, mostra no PDF!
     if os_data.data_garantia:
         pdf.ln(5)
-        pdf.set_text_color(0, 128, 0) # Verde
+        pdf.set_text_color(0, 128, 0)
         pdf.cell(0, 10, f"Garantia Valida ate: {os_data.data_garantia.strftime('%d/%m/%Y')}", new_x="LMARGIN", new_y="NEXT")
         pdf.set_text_color(0, 0, 0)
 
@@ -171,9 +169,10 @@ def gerar_pdf(os_id):
 def login():
     if request.method == 'POST':
         user = User.query.filter_by(username=request.form['username']).first()
-        if user and user.password == request.form['password']:
+        # AQUI É A VERIFICAÇÃO DE SEGURANÇA: Ele compara a senha digitada com o Hash do banco
+        if user and check_password_hash(user.password, request.form['password']):
             login_user(user); return redirect(url_for('dashboard'))
-        flash('Erro de login.', 'danger')
+        flash('Usuário ou senha inválidos.', 'danger')
     return render_template('login.html')
 
 @app.route('/logout')
@@ -182,6 +181,9 @@ def logout(): logout_user(); return redirect(url_for('login'))
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        # AQUI É A CRIAÇÃO DE SEGURANÇA: O admin é criado com a senha criptografada!
         if not User.query.filter_by(username='admin').first():
-            db.session.add(User(username='admin', password='123')); db.session.commit()
+            senha_criptografada = generate_password_hash('123')
+            db.session.add(User(username='admin', password=senha_criptografada))
+            db.session.commit()
     app.run(debug=True)
