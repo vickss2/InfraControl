@@ -11,8 +11,8 @@
             <tr>
                 <th class="p-3">Protocolo</th>
                 <th class="p-3">Cliente / Equipamento</th>
-                <th class="p-3">Status da Garantia</th>
-                <th class="p-3">Valor</th>
+                <th class="p-3">Garantia</th>
+                <th class="p-3">Avaliação do Cliente</th>
                 <th class="p-3 text-center">Ações</th>
             </tr>
         </thead>
@@ -20,36 +20,47 @@
             {% for o in ordens %}
             <tr>
                 <td class="p-3 text-muted fw-bold">#{{ o.id }}</td>
-                <td class="p-3">
-                    <strong>{{ o.cliente.nome }}</strong><br>
-                    <small class="text-muted">{{ o.equipamento }}</small>
-                </td>
+                <td class="p-3"><strong>{{ o.cliente.nome }}</strong><br><small class="text-muted">{{ o.equipamento }}</small></td>
                 <td class="p-3">
                     {% if o.data_garantia %}
                         {% if o.data_garantia >= hoje %}
-                            <span class="badge bg-success shadow-sm" style="font-size: 0.9rem; padding: 8px 12px; border-radius: 10px;">
-                                🛡️ Válida até {{ o.data_garantia.strftime('%d/%m/%Y') }}
-                            </span>
+                            <span class="badge bg-success shadow-sm" style="border-radius: 10px;">🛡️ Até {{ o.data_garantia.strftime('%d/%m/%Y') }}</span>
                         {% else %}
-                            <span class="badge bg-danger shadow-sm" style="font-size: 0.9rem; padding: 8px 12px; border-radius: 10px;">
-                                ⚠️ Expirada
-                            </span>
+                            <span class="badge bg-danger shadow-sm" style="border-radius: 10px;">⚠️ Expirada</span>
+                        {% endif %}
+                    {% else %}<span class="badge bg-secondary">Sem registro</span>{% endif %}
+                </td>
+                
+                <td class="p-3">
+                    {% if o.nota_cliente %}
+                        <div style="color: #ffc107; font-size: 1.2rem;">
+                            {% for i in range(o.nota_cliente) %}★{% endfor %}
+                        </div>
+                        {% if o.comentario_cliente %}
+                            <small class="text-muted d-block mt-1">"{{ o.comentario_cliente }}"</small>
                         {% endif %}
                     {% else %}
-                        <span class="badge bg-secondary">Sem registro</span>
+                        <span class="text-muted" style="font-size: 0.9rem;">Aguardando...</span>
                     {% endif %}
                 </td>
-                <td class="p-3 fw-bold text-dark">R$ {{ "%.2f"|format(o.valor) }}</td>
+
                 <td class="p-3 text-center">
-                    <a href="{{ url_for('gerar_pdf', os_id=o.id) }}" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;" title="Gerar 2ª Via do Recibo">
-                        📄 2ª Via PDF
-                    </a>
+                    <div class="btn-group">
+                        {% set zap = o.cliente.telefone | string | replace(' ', '') | replace('-', '') | replace('(', '') | replace(')', '') %}
+                        {% set link_avaliacao = request.host_url ~ 'avaliar/' ~ o.id %}
+                        {% set msg = "Olá " ~ o.cliente.nome ~ "! Seu equipamento está pronto para retirada. Poderia avaliar nosso atendimento rapidinho? Acesse: " ~ link_avaliacao %}
+                        
+                        <a href="https://wa.me/55{{ zap }}?text={{ msg | urlencode }}" target="_blank" class="btn btn-sm text-white" style="background-color: #25D366; border-radius: 8px 0 0 8px;" title="Pedir Avaliação">
+                            ⭐ Pedir Avaliação
+                        </a>
+                        <a href="{{ url_for('gerar_pdf', os_id=o.id) }}" class="btn btn-sm btn-outline-danger" style="border-radius: 0 8px 8px 0;" title="Gerar 2ª Via do Recibo">
+                            📄 2ª Via
+                        </a>
+                    </div>
                 </td>
             </tr>
             {% else %}
-            <tr>
-                <td colspan="5" class="p-5 text-center text-muted">Ainda não existem ordens entregues no histórico.</td>
-            </tr>
+            <tr><td colspan="5" class="p-5 text-center text-muted">Ainda não existem ordens entregues.</td></tr>
             {% endfor %}
         </tbody>
     </table>

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 style="font-weight: 700; color: #333;">✏️ Editar Peça: {{ peca.nome }}</h2>
+    <a href="{{ url_for('estoque') }}" class="btn btn-outline-secondary" style="border-radius: 12px;">🔙 Voltar para Estoque</a>
+</div>
+
+<div class="card border-0 shadow-sm p-4" style="border-radius: 20px; max-width: 700px; margin: 0 auto;">
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label text-muted fw-bold">Nome da Peça</label>
+            <input type="text" name="nome" class="form-control" value="{{ peca.nome }}" required style="border-radius: 10px;">
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label text-muted fw-bold">Marca</label>
+                <input type="text" name="marca" class="form-control" value="{{ peca.marca if peca.marca else '' }}" style="border-radius: 10px;">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label text-muted fw-bold">Número de Série (S/N)</label>
+                <input type="text" name="numero_serie" class="form-control" value="{{ peca.numero_serie if peca.numero_serie else '' }}" style="border-radius: 10px;">
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <label class="form-label text-muted fw-bold">Valor de Custo (R$)</label>
+                <input type="text" name="valor_custo" class="form-control text-danger fw-bold" value="{{ ('%.2f'|format(peca.valor_custo)).replace('.', ',') }}" required style="border-radius: 10px;">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label text-muted fw-bold">Valor de Venda (R$)</label>
+                <input type="text" name="valor_venda" class="form-control fw-bold" style="color: var(--primary); border-radius: 10px;" value="{{ ('%.2f'|format(peca.valor_venda)).replace('.', ',') }}" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label text-muted fw-bold">Quantidade Atual</label>
+                <input type="number" name="quantidade" class="form-control" value="{{ peca.quantidade }}" min="0" required style="border-radius: 10px;">
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold" style="border-radius: 10px;">💾 Salvar Alterações</button>
+    </form>
+</div>
+{% endblock %}

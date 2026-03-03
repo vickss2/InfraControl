@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avalie nosso serviço - InfraControl</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Inter', sans-serif;}
+        .card-avaliacao { background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); padding: 40px; width: 100%; max-width: 500px; text-align: center;}
+        
+        /* Mágica das Estrelas em CSS puro */
+        .rating { display: flex; flex-direction: row-reverse; justify-content: center; gap: 10px; margin: 20px 0; }
+        .rating input { display: none; }
+        .rating label { font-size: 3rem; color: #e4e5e9; cursor: pointer; transition: color 0.2s; }
+        .rating input:checked ~ label { color: #ffc107; }
+        .rating label:hover, .rating label:hover ~ label { color: #ffb400; }
+    </style>
+</head>
+<body>
+
+    <div class="card-avaliacao">
+        <h2 style="color: #ff85a1; font-weight: 800;">InfraControl</h2>
+        
+        {% if sucesso or os_data.nota_cliente %}
+            <div class="alert alert-success mt-4" style="border-radius: 15px; border: none; background-color: #d1e7dd; color: #0f5132;">
+                <h4 class="fw-bold mb-2">🎉 Muito Obrigado!</h4>
+                <p class="mb-0">Sua avaliação ({{ os_data.nota_cliente }} estrelas) foi registrada com sucesso.</p>
+            </div>
+            <a href="javascript:window.close();" class="btn btn-outline-secondary mt-3" style="border-radius: 10px;">Fechar Aba</a>
+        {% else %}
+            <p class="text-muted mt-2">Olá, <strong>{{ os_data.cliente.nome }}</strong>! Seu equipamento ({{ os_data.equipamento }}) já foi entregue.</p>
+            <h5 class="mt-4 fw-bold" style="color: #333;">Como você avalia nosso atendimento?</h5>
+            
+            <form method="POST">
+                <div class="rating">
+                    <input type="radio" name="nota" value="5" id="5"><label for="5">★</label>
+                    <input type="radio" name="nota" value="4" id="4"><label for="4">★</label>
+                    <input type="radio" name="nota" value="3" id="3"><label for="3">★</label>
+                    <input type="radio" name="nota" value="2" id="2"><label for="2">★</label>
+                    <input type="radio" name="nota" value="1" id="1" required><label for="1">★</label>
+                </div>
+                
+                <textarea name="comentario" class="form-control mb-4" rows="3" placeholder="Deixe um elogio ou sugestão (opcional)..." style="border-radius: 15px;"></textarea>
+                
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold text-white" style="border-radius: 15px; background-color: #ff85a1; border: none;">Enviar Avaliação</button>
+            </form>
+        {% endif %}
+    </div>
+
+</body>
+</html>
