@@ -21,7 +21,8 @@
                 <th>Custo</th>
                 <th>Valor de Venda</th>
                 <th>Estoque</th>
-                <th>Ações</th> </tr>
+                <th>Ações</th>
+            </tr>
         </thead>
         <tbody>
             {% for p in pecas %}
@@ -31,8 +32,8 @@
                     {{ p.marca if p.marca else 'N/A' }}<br>
                     <small>S/N: {{ p.numero_serie if p.numero_serie else 'N/A' }}</small>
                 </td>
-                <td class="p-3 text-danger">R$ {{ "%.2f"|format(p.valor_custo) }}</td>
-                <td class="p-3 fw-bold" style="color: var(--primary);">R$ {{ "%.2f"|format(p.valor_venda) }}</td>
+                <td class="p-3 text-danger">R$ {{ p.valor_custo | moeda }}</td>
+                <td class="p-3 fw-bold" style="color: var(--primary);">R$ {{ p.valor_venda | moeda }}</td>
                 <td class="p-3">
                     {% if p.quantidade <= 2 %}
                         <span class="badge bg-danger p-2" style="border-radius: 8px;">{{ p.quantidade }} UN (Baixo)</span>

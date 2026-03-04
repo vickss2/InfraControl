@@ -1,144 +1,98 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InfraControl - Gestão de Infraestrutura e TI</title>
+    <title>InfraControl - Gestão Técnica</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
     <style>
         :root {
-            --primary: #ff85a1; /* NOSSA COR OFICIAL - ROSA */
-            --primary-hover: #ff6b8b; /* Rosa um pouco mais forte para o clique */
-            --sidebar-bg: #ffffff; /* Fundo do menu agora é BRANCO puro */
-            --body-bg: #fffafb; /* Fundo do site é um branco levemente "quente" pro rosa */
-            --text-dark: #495057; /* Cinza escuro elegante para os textos */
+            /* Nossa Paleta Rosa Claro e Branco Oficial (Aprovada!) */
+            --primary: #ffb3c6; 
+            --primary-dark: #ff9aab; 
+            --bg-light: #ffffff; 
         }
-        
-        body { 
-            background-color: var(--body-bg); 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            overflow-x: hidden; 
-            color: var(--text-dark);
+        body {
+            background-color: var(--bg-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #444; 
         }
-        
-        /* --- ESTILOS DO MENU LATERAL (SIDEBAR) CLARO --- */
-        .sidebar { 
-            min-height: 100vh; 
-            background-color: var(--sidebar-bg); 
-            padding-top: 20px; 
-            /* Sombra suave com um tom de rosa para separar o menu do resto do site */
-            box-shadow: 4px 0 15px rgba(255, 133, 161, 0.15); 
-            position: fixed;
-            width: 250px;
-            z-index: 1000;
-        }
-        
-        .brand-logo { 
-            font-weight: 800; 
-            font-size: 1.6rem; 
-            text-align: center; 
-            color: var(--text-dark); /* Texto escuro no fundo branco */
-            margin-bottom: 30px; 
-            letter-spacing: 1px; 
-        }
-        
-        .brand-logo span { color: var(--primary); }
-        
-        /* Letras do menu: Cinza escuro, viram Rosa no hover */
-        .sidebar .nav-link { 
-            color: var(--text-dark) !important; 
-            font-weight: 600; 
-            padding: 12px 20px; 
-            transition: all 0.3s; 
-            display: flex; 
-            align-items: center; 
-            gap: 12px; 
-            text-decoration: none; 
-            border-radius: 10px; 
-            margin: 5px 15px;
-        }
-        
-        /* Cor Rosa Oficial quando passa o mouse */
-        .sidebar .nav-link:hover, .sidebar .nav-link.active { 
-            background-color: var(--primary) !important; 
-            color: white !important; 
-            transform: translateX(5px);
-            box-shadow: 0 4px 10px rgba(255, 133, 161, 0.3);
-        }
-
-        /* --- MATANDO O AZUL DO BOOTSTRAP (Forçando o Rosa) --- */
-        .btn-primary {
-            background-color: var(--primary) !important;
-            border-color: var(--primary) !important;
-            color: white !important;
-        }
-        .btn-primary:hover {
-            background-color: var(--primary-hover) !important;
-            border-color: var(--primary-hover) !important;
-        }
-        .btn-outline-primary {
-            color: var(--primary) !important;
-            border-color: var(--primary) !important;
-        }
-        .btn-outline-primary:hover {
-            background-color: var(--primary) !important;
-            color: white !important;
-        }
-        .bg-primary { background-color: var(--primary) !important; }
-        .text-primary { color: var(--primary) !important; }
-
-        .main-content { 
-            margin-left: 250px; 
-            padding: 30px; 
+        /* O Menu Lateral Delicado */
+        .sidebar {
+            background-color: var(--primary-dark);
             min-height: 100vh;
+            border-radius: 0 30px 30px 0;
+            padding: 20px;
+            box-shadow: 4px 0 15px rgba(255, 154, 171, 0.2); 
         }
-        
-        .alert-container { 
-            position: fixed; 
-            top: 20px; 
-            right: 20px; 
-            z-index: 1050; 
-            min-width: 300px;
+        .sidebar h3 {
+            color: #ffffff !important;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        .sidebar .nav-link {
+            color: #ffffff !important;
+            border-radius: 12px;
+            transition: all 0.3s;
+            font-weight: 600;
+            padding: 10px 15px;
+            margin-bottom: 5px; /* Espaço padronizado entre todos os botões */
+        }
+        /* Efeito Branco e Rosa ao passar o mouse (PADRÃO PARA TODOS) */
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            background-color: #ffffff;
+            color: var(--primary-dark) !important;
+            transform: translateX(5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .main-content {
+            padding: 40px;
+        }
+        /* Posição dos Avisos */
+        .flash-messages {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
         }
     </style>
 </head>
 <body>
     <div class="d-flex">
-        
-        <nav class="sidebar d-flex flex-column">
-            <div class="brand-logo">Infra<span>Control</span></div>
+        <div class="sidebar d-flex flex-column" style="width: 280px;">
+            <h3 class="mb-4 text-center mt-3">💻 InfraControl</h3>
+            <hr class="text-white opacity-50">
             
-            <a href="{{ url_for('dashboard') }}" class="nav-link">📊 Dashboard</a>
-            <a href="{{ url_for('clientes') }}" class="nav-link">👥 Clientes</a>
-            <a href="{{ url_for('ordens') }}" class="nav-link">🛠️ Ordens (OS)</a>
-            <a href="{{ url_for('estoque') }}" class="nav-link">📦 Estoque / Peças</a>
-            <a href="{{ url_for('historico') }}" class="nav-link">📚 Histórico e PDF</a>
-            <a href="{{ url_for('relatorios') }}" class="nav-link">📈 Financeiro / Relatórios</a>
+            <nav class="nav flex-column mb-auto">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">📊 Visão Geral</a>
+                <a href="{{ url_for('ordens') }}" class="nav-link">⚙️ Ordens de Serviço</a>
+                <a href="{{ url_for('clientes') }}" class="nav-link">👥 Meus Clientes</a>
+                <a href="{{ url_for('estoque') }}" class="nav-link">📦 Estoque de Peças</a>
+                <a href="{{ url_for('servicos') }}" class="nav-link">📋 Catálogo de Serviços</a>
+                <a href="{{ url_for('relatorios') }}" class="nav-link">📈 Financeiro Mensal</a>
+                <a href="{{ url_for('rastreio') }}" class="nav-link">🔍 Rastreio do Cliente</a>
+                <a href="{{ url_for('historico') }}" class="nav-link">📁 Histórico (OS Fechadas)</a>
+            </nav>
             
-            <div class="mt-auto mb-4 w-100">
-                <hr style="border-color: #ffe3e8; margin: 0 15px 15px 15px;">
-                <a href="{{ url_for('logout') }}" class="nav-link" style="color: #ff4d4d !important; background: transparent; box-shadow: none;">🚪 Sair</a>
-            </div>
-        </nav>
+            <hr class="text-white opacity-50">
+            <a href="{{ url_for('logout') }}" class="nav-link text-white fw-bold text-center mt-2">🚪 Sair do Sistema</a>
+        </div>
 
         <div class="main-content flex-grow-1">
-            
-            <div class="alert-container">
+            <div class="flash-messages">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         {% for category, message in messages %}
-                            <div class="alert alert-{{ category }} alert-dismissible fade show shadow" role="alert" style="border-radius: 12px; font-weight: 500;">
-                                {{ message }}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" style="border-radius: 12px; border-left: 5px solid var(--primary); background-color: white;" role="alert">
+                                <strong>Aviso:</strong> {{ message }}
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         {% endfor %}
                     {% endif %}
                 {% endwith %}
             </div>
-
-            {% block content %}{% endblock %}
             
+            {% block content %}{% endblock %}
         </div>
     </div>
 

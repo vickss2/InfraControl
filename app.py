@@ -5,7 +5,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 
-from models import db, User, Cliente, OrdemServico, Peca, ItemOS
+# IMPORTANDO AS NOVAS TABELAS DE SERVIÇOS
+from models import db, User, Cliente, OrdemServico, Peca, ItemOS, Servico, ItemServicoOS
 from ia_engine import simular_ia
 from fpdf import FPDF
 import io
@@ -22,35 +23,30 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id): return User.query.get(int(user_id))
 
-# --- MOTOR DE DINHEIRO À PROVA DE BALAS ---
+@app.template_filter('moeda')
+def format_moeda(valor):
+    try:
+        v = float(valor)
+        return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except: return "0,00"
+
 def converter_dinheiro(valor_str):
     if not valor_str: return 0.0
-    # Deixa apenas números, pontos e vírgulas (arranca letras e R$)
-    v = ''.join(c for c in str(valor_str) if c.isdigit() or c in '.,')
+    v = str(valor_str).upper().replace('R', '').replace('$', '').strip()
+    v = ''.join(c for c in v if c.isdigit() or c in '.,')
     if not v: return 0.0
-    
-    if ',' in v:
-        # Se tem vírgula, é o padrão BR (Ex: 2.908,00)
-        v = v.replace('.', '')  # Tira o ponto do milhar
-        v = v.replace(',', '.') # Transforma a vírgula em ponto pro Python
-    else:
-        # Se a pessoa só usou ponto (Ex: 2.908.00 ou 1.500)
-        if v.count('.') > 1:
-            # Tem mais de um ponto! O último é os centavos, o resto é milhar.
-            partes = v.rsplit('.', 1)
-            v = partes[0].replace('.', '') + '.' + partes[1]
-        elif v.count('.') == 1:
-            # Tem só um ponto. É milhar (1.500) ou centavo (1500.00)?
-            partes = v.split('.')
-            if len(partes[1]) == 3: # Ex: 500 (3 zeros) -> É milhar!
-                v = v.replace('.', '')
-                
-    try:
-        return float(v)
-    except ValueError:
-        return 0.0
+    if ',' in v and '.' in v:
+        if v.rfind(',') > v.rfind('.'): v = v.replace('.', '').replace(',', '.')
+        else: v = v.replace(',', '')
+    elif '.' in v:
+        partes = v.split('.')
+        if len(partes) > 2: v = ''.join(partes[:-1]) + '.' + partes[-1]
+        else:
+            if len(partes[1]) == 3: v = v.replace('.', '')
+    elif ',' in v: v = v.replace(',', '.')
+    try: return float(v)
+    except ValueError: return 0.0
 
-# --- DASHBOARD ---
 @app.route('/')
 @login_required
 def dashboard():
@@ -72,7 +68,8 @@ def dashboard():
         elif any(p in desc for p in ["limpeza", "pasta térmica", "esquentando"]): categorias['Preventiva'] += 1
         else: categorias['Outros'] += 1
         
-        faturamento_bruto += (o.valor + sum(i.valor_total for i in o.itens)) - (o.desconto or 0)
+        # Agora soma também os Serviços de Catálogo!
+        faturamento_bruto += (o.valor + sum(s.valor_cobrado for s in o.servicos_feitos) + sum(i.valor_total for i in o.itens)) - (o.desconto or 0)
             
     categorias_filtradas = {k: v for k, v in categorias.items() if v > 0}
     stats = {'c': Cliente.query.count(), 'oa': OrdemServico.query.filter(OrdemServico.status != 'Finalizado').count(), 'f': faturamento_bruto}
@@ -123,6 +120,24 @@ def excluir_cliente(id):
     else: db.session.delete(cliente); db.session.commit(); flash('Removido!', 'success')
     return redirect(url_for('clientes'))
 
+# --- NOVO: ROTAS DO CATÁLOGO DE SERVIÇOS ---
+@app.route('/servicos', methods=['GET', 'POST'])
+@login_required
+def servicos():
+    if request.method == 'POST':
+        valor = converter_dinheiro(request.form['valor'])
+        db.session.add(Servico(nome=request.form['nome'], valor=valor))
+        db.session.commit(); flash('Serviço cadastrado!', 'success'); return redirect(url_for('servicos'))
+    lista = Servico.query.all()
+    return render_template('servicos.html', servicos=lista)
+
+@app.route('/excluir_servico/<int:id>')
+@login_required
+def excluir_servico(id): 
+    db.session.delete(Servico.query.get_or_404(id))
+    db.session.commit(); flash('Serviço Removido do Catálogo!', 'success')
+    return redirect(url_for('servicos'))
+
 @app.route('/estoque', methods=['GET', 'POST'])
 @login_required
 def estoque():
@@ -146,9 +161,7 @@ def editar_peca(id):
         peca.valor_custo = converter_dinheiro(request.form['valor_custo'])
         peca.valor_venda = converter_dinheiro(request.form['valor_venda'])
         peca.quantidade = int(request.form['quantidade'])
-        db.session.commit()
-        flash('Peça atualizada com sucesso!', 'success')
-        return redirect(url_for('estoque'))
+        db.session.commit(); flash('Peça atualizada com sucesso!', 'success'); return redirect(url_for('estoque'))
     return render_template('editar_peca.html', peca=peca)
 
 @app.route('/excluir_peca/<int:id>')
@@ -173,6 +186,7 @@ def ordens():
         nome_arq = None
         if 'foto_antes' in request.files and request.files['foto_antes'].filename != '':
             nome_arq = secure_filename(request.files['foto_antes'].filename); request.files['foto_antes'].save(os.path.join(app.root_path, 'static', 'uploads', nome_arq))
+        # O preço da IA entra como um valor de "Mão de Obra Manual/Extra"
         db.session.add(OrdemServico(equipamento=request.form.get('equipamento'), marca=request.form.get('marca'), tipo_manutencao=request.form.get('tipo_manutencao'), descricao_problema=desc, diagnostico_ia=diag, valor=preco, cliente_id=request.form.get('cliente_id'), foto_antes=nome_arq, status='Aberto'))
         db.session.commit(); flash('Ordem gerada!', 'success'); return redirect(url_for('ordens'))
     search = request.args.get('search')
@@ -183,13 +197,42 @@ def ordens():
     for o in ativas: o.nivel, o.estilo = p_map.get(o.status, 10), c_map.get(o.status, 'secondary')
     return render_template('os.html', ordens=ativas, clientes=Cliente.query.all(), search=search)
 
-@app.route('/gerenciar_os/<int:id>')
+@app.route('/gerenciar_os/<int:id>', methods=['GET', 'POST'])
 @login_required
 def gerenciar_os(id):
     os_data = OrdemServico.query.get_or_404(id)
+    
+    if request.method == 'POST': # Atualizar o valor de mão de obra extra manualmente
+        os_data.valor = converter_dinheiro(request.form.get('valor_extra', '0'))
+        db.session.commit()
+        flash('Mão de obra avulsa atualizada!', 'success')
+        return redirect(url_for('gerenciar_os', id=os_data.id))
+
     total_pecas = sum(i.valor_total for i in os_data.itens)
-    total_geral = (os_data.valor + total_pecas) - (os_data.desconto or 0.0)
-    return render_template('gerenciar_os.html', os_data=os_data, pecas=Peca.query.filter(Peca.quantidade > 0).all(), total_pecas=total_pecas, total_geral=total_geral)
+    total_servicos = sum(s.valor_cobrado for s in os_data.servicos_feitos)
+    total_geral = (os_data.valor + total_servicos + total_pecas) - (os_data.desconto or 0.0)
+    
+    # Enviando o Catálogo de Serviços para a tela!
+    catalogo = Servico.query.all()
+    
+    return render_template('gerenciar_os.html', os_data=os_data, pecas=Peca.query.filter(Peca.quantidade > 0).all(), catalogo=catalogo, total_pecas=total_pecas, total_servicos=total_servicos, total_geral=total_geral)
+
+# --- ADICIONAR E REMOVER SERVIÇOS DA OS ---
+@app.route('/add_servico_os/<int:os_id>', methods=['POST'])
+@login_required
+def add_servico_os(os_id):
+    servico = Servico.query.get_or_404(request.form.get('servico_id'))
+    db.session.add(ItemServicoOS(os_id=os_id, servico_id=servico.id, nome_servico=servico.nome, valor_cobrado=servico.valor))
+    db.session.commit(); flash('Serviço adicionado ao orçamento!', 'success')
+    return redirect(url_for('gerenciar_os', id=os_id))
+
+@app.route('/remover_servico_os/<int:item_id>')
+@login_required
+def remover_servico_os(item_id):
+    item = ItemServicoOS.query.get_or_404(item_id)
+    os_id = item.os_id
+    db.session.delete(item); db.session.commit(); flash('Serviço removido.', 'info')
+    return redirect(url_for('gerenciar_os', id=os_id))
 
 @app.route('/add_item_os/<int:os_id>', methods=['POST'])
 @login_required
@@ -213,9 +256,7 @@ def remover_item_os(item_id):
 def aplicar_desconto(os_id):
     os_data = OrdemServico.query.get_or_404(os_id)
     os_data.desconto = converter_dinheiro(request.form.get('desconto', '0'))
-    db.session.commit()
-    flash('Desconto aplicado com sucesso!', 'success')
-    return redirect(url_for('gerenciar_os', id=os_id))
+    db.session.commit(); flash('Desconto aplicado com sucesso!', 'success'); return redirect(url_for('gerenciar_os', id=os_id))
 
 @app.route('/atualizar_status/<int:id>', methods=['POST'])
 @login_required
@@ -241,7 +282,8 @@ def relatorios():
     
     ordens = OrdemServico.query.filter(OrdemServico.status == 'Finalizado', OrdemServico.data_abertura.like(f'{filtro_mes}%')).all()
     
-    receita_servicos = sum(o.valor for o in ordens)
+    # Soma de Mão de Obra Avulsa + Serviços do Catálogo
+    receita_servicos = sum((o.valor + sum(s.valor_cobrado for s in o.servicos_feitos)) for o in ordens)
     receita_pecas = sum(item.valor_total for o in ordens for item in o.itens)
     custo_pecas = sum((item.peca.valor_custo * item.quantidade) for o in ordens for item in o.itens if item.peca)
     descontos = sum(o.desconto or 0 for o in ordens)
@@ -262,53 +304,37 @@ def relatorio_pdf():
     filtro_mes = request.args.get('mes', datetime.now().strftime('%Y-%m'))
     ordens = OrdemServico.query.filter(OrdemServico.status == 'Finalizado', OrdemServico.data_abertura.like(f'{filtro_mes}%')).all()
     
-    receita_servicos = sum(o.valor for o in ordens)
+    receita_servicos = sum((o.valor + sum(s.valor_cobrado for s in o.servicos_feitos)) for o in ordens)
     receita_pecas = sum(item.valor_total for o in ordens for item in o.itens)
     custo_pecas = sum((item.peca.valor_custo * item.quantidade) for o in ordens for item in o.itens if item.peca)
     descontos = sum(o.desconto or 0 for o in ordens)
     faturamento_bruto = receita_servicos + receita_pecas - descontos
     lucro_liquido = faturamento_bruto - custo_pecas
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_fill_color(43, 45, 66)
-    pdf.rect(0, 0, 210, 30, 'F')
-    pdf.set_font("helvetica", 'B', 18)
-    pdf.set_text_color(255, 255, 255)
+    pdf = FPDF(); pdf.add_page(); pdf.set_fill_color(43, 45, 66); pdf.rect(0, 0, 210, 30, 'F')
+    pdf.set_font("helvetica", 'B', 18); pdf.set_text_color(255, 255, 255)
     pdf.cell(0, 15, f"Relatorio Financeiro - {filtro_mes}", align='C', new_x="LMARGIN", new_y="NEXT")
     
-    pdf.ln(15)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("helvetica", 'B', 12)
-    pdf.cell(0, 8, "RESUMO DO MES:", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", '', 11)
+    pdf.ln(15); pdf.set_text_color(0, 0, 0); pdf.set_font("helvetica", 'B', 12)
+    pdf.cell(0, 8, "RESUMO DO MES:", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 11)
     
-    pdf.cell(0, 6, f"Total de Servicos (Mao de Obra): R$ {receita_servicos:.2f}", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 6, f"Total de Pecas Vendidas: R$ {receita_pecas:.2f}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"Total de Servicos (Mao de Obra): R$ {format_moeda(receita_servicos)}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"Total de Pecas Vendidas: R$ {format_moeda(receita_pecas)}", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(255, 0, 0); pdf.cell(0, 6, f"Descontos Concedidos: - R$ {format_moeda(descontos)}", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0); pdf.cell(0, 6, f"Custo das Pecas (Reposicao): - R$ {format_moeda(custo_pecas)}", new_x="LMARGIN", new_y="NEXT")
     
-    pdf.set_text_color(255, 0, 0)
-    pdf.cell(0, 6, f"Descontos Concedidos: - R$ {descontos:.2f}", new_x="LMARGIN", new_y="NEXT")
-    
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 6, f"Custo das Pecas (Reposicao): - R$ {custo_pecas:.2f}", new_x="LMARGIN", new_y="NEXT")
-    
-    pdf.ln(5)
-    pdf.set_font("helvetica", 'B', 14)
-    pdf.cell(0, 8, f"FATURAMENTO BRUTO: R$ {faturamento_bruto:.2f}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(5); pdf.set_font("helvetica", 'B', 14)
+    pdf.cell(0, 8, f"FATURAMENTO BRUTO: R$ {format_moeda(faturamento_bruto)}", new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(0, 128, 0)
-    pdf.cell(0, 8, f"LUCRO LIQUIDO REAL: R$ {lucro_liquido:.2f}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"LUCRO LIQUIDO REAL: R$ {format_moeda(lucro_liquido)}", new_x="LMARGIN", new_y="NEXT")
     
-    pdf.ln(10)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("helvetica", 'B', 10)
-    pdf.cell(0, 8, "LISTA DE EQUIPAMENTOS ENTREGUES:", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", '', 9)
+    pdf.ln(10); pdf.set_text_color(0, 0, 0); pdf.set_font("helvetica", 'B', 10)
+    pdf.cell(0, 8, "LISTA DE EQUIPAMENTOS ENTREGUES:", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 9)
     for o in ordens:
-        total_os = (o.valor + sum(i.valor_total for i in o.itens)) - (o.desconto or 0)
-        pdf.cell(0, 6, f"OS #{o.id} | {o.cliente.nome} | {o.equipamento} | Total: R$ {total_os:.2f}", border=1, new_x="LMARGIN", new_y="NEXT")
+        total_os = (o.valor + sum(s.valor_cobrado for s in o.servicos_feitos) + sum(i.valor_total for i in o.itens)) - (o.desconto or 0)
+        pdf.cell(0, 6, f"OS #{o.id} | {o.cliente.nome} | {o.equipamento} | Total: R$ {format_moeda(total_os)}", border=1, new_x="LMARGIN", new_y="NEXT")
 
-    buf = io.BytesIO(pdf.output())
-    buf.seek(0)
+    buf = io.BytesIO(pdf.output()); buf.seek(0)
     return send_file(buf, as_attachment=True, download_name=f"Financeiro_{filtro_mes}.pdf", mimetype='application/pdf')
 
 @app.route('/gerar_pdf/<int:os_id>')
@@ -324,20 +350,30 @@ def gerar_pdf(os_id):
     pdf.multi_cell(190, 10, f"Cliente: {os_data.cliente.nome}\nEquipamento: {os_data.equipamento} ({marca_t})\nTipo: {tipo_t}\nDiagnostico: {os_data.diagnostico_ia}", border=1)
     
     pdf.ln(5); pdf.set_font("helvetica", 'B', 10)
-    pdf.cell(0, 8, f"Mao de Obra: R$ {os_data.valor:.2f}", new_x="LMARGIN", new_y="NEXT")
+    
+    # Lista de Serviços Feitos
+    if os_data.servicos_feitos or os_data.valor > 0:
+        pdf.cell(0, 8, "Servicos Executados:", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 10)
+        for s in os_data.servicos_feitos:
+            pdf.cell(0, 6, f"- {s.nome_servico} | R$ {format_moeda(s.valor_cobrado)}", new_x="LMARGIN", new_y="NEXT")
+        if os_data.valor > 0:
+            pdf.cell(0, 6, f"- Mao de Obra Avulsa | R$ {format_moeda(os_data.valor)}", new_x="LMARGIN", new_y="NEXT")
+
     total_pecas = 0
     if os_data.itens:
-        pdf.cell(0, 8, "Pecas Usadas:", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 10)
+        pdf.ln(3); pdf.set_font("helvetica", 'B', 10)
+        pdf.cell(0, 8, "Pecas Usadas (Estoque):", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 10)
         for item in os_data.itens:
-            pdf.cell(0, 6, f"- {item.quantidade}x {item.nome_peca} | R$ {item.valor_total:.2f}", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 6, f"- {item.quantidade}x {item.nome_peca} | R$ {format_moeda(item.valor_total)}", new_x="LMARGIN", new_y="NEXT")
             total_pecas += item.valor_total
 
     if os_data.desconto and os_data.desconto > 0:
-        pdf.set_text_color(255, 0, 0); pdf.cell(0, 8, f"Desconto Aplicado: - R$ {os_data.desconto:.2f}", new_x="LMARGIN", new_y="NEXT"); pdf.set_text_color(0, 0, 0)
+        pdf.ln(3); pdf.set_text_color(255, 0, 0); pdf.cell(0, 8, f"Desconto Aplicado: - R$ {format_moeda(os_data.desconto)}", new_x="LMARGIN", new_y="NEXT"); pdf.set_text_color(0, 0, 0)
 
-    total_geral = (os_data.valor + total_pecas) - (os_data.desconto or 0)
+    total_servicos = sum(s.valor_cobrado for s in os_data.servicos_feitos)
+    total_geral = (os_data.valor + total_servicos + total_pecas) - (os_data.desconto or 0)
 
-    pdf.ln(5); pdf.set_font("helvetica", 'B', 14); pdf.cell(0, 10, f"TOTAL A PAGAR: R$ {total_geral:.2f}", align='R', new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(5); pdf.set_font("helvetica", 'B', 14); pdf.cell(0, 10, f"TOTAL A PAGAR: R$ {format_moeda(total_geral)}", align='R', new_x="LMARGIN", new_y="NEXT")
     buf = io.BytesIO(pdf.output()); buf.seek(0)
     return send_file(buf, as_attachment=True, download_name=f"OS_{os_id}.pdf", mimetype='application/pdf')
 
@@ -354,6 +390,6 @@ def logout(): logout_user(); return redirect(url_for('login'))
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        db.create_all() # Essa linha mágica cria as tabelas de Serviços sem apagar as antigas!
         if not User.query.filter_by(username='admin').first(): db.session.add(User(username='admin', password=generate_password_hash('123'))); db.session.commit()
     app.run(debug=True)

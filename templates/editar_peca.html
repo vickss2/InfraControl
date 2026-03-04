@@ -26,11 +26,11 @@
         <div class="row mb-4">
             <div class="col-md-4 mb-3">
                 <label class="form-label text-muted fw-bold">Valor de Custo (R$)</label>
-                <input type="text" name="valor_custo" class="form-control text-danger fw-bold" value="{{ ('%.2f'|format(peca.valor_custo)).replace('.', ',') }}" required style="border-radius: 10px;">
+                <input type="text" name="valor_custo" class="form-control text-danger fw-bold" value="{{ peca.valor_custo | moeda }}" required style="border-radius: 10px;">
             </div>
             <div class="col-md-4 mb-3">
                 <label class="form-label text-muted fw-bold">Valor de Venda (R$)</label>
-                <input type="text" name="valor_venda" class="form-control fw-bold" style="color: var(--primary); border-radius: 10px;" value="{{ ('%.2f'|format(peca.valor_venda)).replace('.', ',') }}" required>
+                <input type="text" name="valor_venda" class="form-control fw-bold" style="color: var(--primary); border-radius: 10px;" value="{{ peca.valor_venda | moeda }}" required>
             </div>
             <div class="col-md-4 mb-3">
                 <label class="form-label text-muted fw-bold">Quantidade Atual</label>
