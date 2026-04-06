@@ -46,7 +46,10 @@
                         
                         <a href="{{ url_for('finalizar_os', os_id=o.id) }}" class="btn btn-sm btn-outline-success" style="border-radius: 8px;" title="Entregar Equipamento">✅</a>
                         <a href="{{ url_for('gerar_pdf', os_id=o.id) }}" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;" title="Gerar PDF">📄</a>
+                        
+                        {% if current_user.role == 'admin' %}
                         <a href="{{ url_for('excluir_os', id=o.id) }}" class="btn btn-sm btn-outline-secondary" style="border-radius: 8px;" onclick="return confirm('Tem certeza que deseja excluir esta ordem?')" title="Excluir OS">🗑️</a>
+                        {% endif %}
                     </div>
                 </td>
             </tr>

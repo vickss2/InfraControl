@@ -5,7 +5,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 
-# IMPORTANDO AS NOVAS TABELAS DE SERVIÇOS
 from models import db, User, Cliente, OrdemServico, Peca, ItemOS, Servico, ItemServicoOS
 from ia_engine import simular_ia
 from fpdf import FPDF
@@ -21,14 +20,16 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 @login_manager.user_loader
-def load_user(user_id): return User.query.get(int(user_id))
+def load_user(user_id): 
+    return User.query.get(int(user_id))
 
 @app.template_filter('moeda')
 def format_moeda(valor):
     try:
         v = float(valor)
         return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    except: return "0,00"
+    except: 
+        return "0,00"
 
 def converter_dinheiro(valor_str):
     if not valor_str: return 0.0
@@ -68,7 +69,6 @@ def dashboard():
         elif any(p in desc for p in ["limpeza", "pasta térmica", "esquentando"]): categorias['Preventiva'] += 1
         else: categorias['Outros'] += 1
         
-        # Agora soma também os Serviços de Catálogo!
         faturamento_bruto += (o.valor + sum(s.valor_cobrado for s in o.servicos_feitos) + sum(i.valor_total for i in o.itens)) - (o.desconto or 0)
             
     categorias_filtradas = {k: v for k, v in categorias.items() if v > 0}
@@ -93,14 +93,20 @@ def avaliar(os_id):
     os_data = OrdemServico.query.get_or_404(os_id)
     sucesso = False
     if request.method == 'POST':
-        os_data.nota_cliente = int(request.form.get('nota')); os_data.comentario_cliente = request.form.get('comentario'); db.session.commit(); sucesso = True
+        os_data.nota_cliente = int(request.form.get('nota'))
+        os_data.comentario_cliente = request.form.get('comentario')
+        db.session.commit()
+        sucesso = True
     return render_template('avaliar.html', os_data=os_data, sucesso=sucesso)
 
 @app.route('/clientes', methods=['GET', 'POST'])
 @login_required
 def clientes():
     if request.method == 'POST':
-        db.session.add(Cliente(nome=request.form['nome'], email=request.form['email'], telefone=request.form['telefone'])); db.session.commit(); flash('Cadastrado!', 'success'); return redirect(url_for('clientes'))
+        db.session.add(Cliente(nome=request.form['nome'], email=request.form['email'], telefone=request.form['telefone']))
+        db.session.commit()
+        flash('Cadastrado!', 'success')
+        return redirect(url_for('clientes'))
     search = request.args.get('search')
     lista = Cliente.query.filter(Cliente.nome.ilike(f'%{search}%')).all() if search else Cliente.query.all()
     return render_template('clientes.html', clientes=lista, search=search)
@@ -109,33 +115,53 @@ def clientes():
 @login_required
 def editar_cliente(id):
     cliente = Cliente.query.get_or_404(id)
-    if request.method == 'POST': cliente.nome, cliente.email, cliente.telefone = request.form['nome'], request.form['email'], request.form['telefone']; db.session.commit(); flash('Atualizado!', 'success'); return redirect(url_for('clientes'))
+    if request.method == 'POST': 
+        cliente.nome, cliente.email, cliente.telefone = request.form['nome'], request.form['email'], request.form['telefone']
+        db.session.commit()
+        flash('Atualizado!', 'success')
+        return redirect(url_for('clientes'))
     return render_template('editar_cliente.html', cliente=cliente)
 
 @app.route('/excluir_cliente/<int:id>')
 @login_required
 def excluir_cliente(id):
+    # TRAVA DE SEGURANÇA
+    if current_user.role != 'admin':
+        flash('Acesso negado: Apenas administradores podem excluir clientes!', 'danger')
+        return redirect(url_for('clientes'))
+        
     cliente = Cliente.query.get_or_404(id)
-    if OrdemServico.query.filter_by(cliente_id=id).first(): flash('Possui ordens!', 'danger')
-    else: db.session.delete(cliente); db.session.commit(); flash('Removido!', 'success')
+    if OrdemServico.query.filter_by(cliente_id=id).first(): 
+        flash('Possui ordens cadastradas!', 'danger')
+    else: 
+        db.session.delete(cliente)
+        db.session.commit()
+        flash('Removido!', 'success')
     return redirect(url_for('clientes'))
 
-# --- NOVO: ROTAS DO CATÁLOGO DE SERVIÇOS ---
 @app.route('/servicos', methods=['GET', 'POST'])
 @login_required
 def servicos():
     if request.method == 'POST':
         valor = converter_dinheiro(request.form['valor'])
         db.session.add(Servico(nome=request.form['nome'], valor=valor))
-        db.session.commit(); flash('Serviço cadastrado!', 'success'); return redirect(url_for('servicos'))
+        db.session.commit()
+        flash('Serviço cadastrado!', 'success')
+        return redirect(url_for('servicos'))
     lista = Servico.query.all()
     return render_template('servicos.html', servicos=lista)
 
 @app.route('/excluir_servico/<int:id>')
 @login_required
-def excluir_servico(id): 
+def excluir_servico(id):
+    # TRAVA DE SEGURANÇA
+    if current_user.role != 'admin':
+        flash('Acesso negado!', 'danger')
+        return redirect(url_for('servicos'))
+        
     db.session.delete(Servico.query.get_or_404(id))
-    db.session.commit(); flash('Serviço Removido do Catálogo!', 'success')
+    db.session.commit()
+    flash('Removido!', 'success')
     return redirect(url_for('servicos'))
 
 @app.route('/estoque', methods=['GET', 'POST'])
@@ -145,7 +171,9 @@ def estoque():
         custo = converter_dinheiro(request.form['valor_custo'])
         venda = converter_dinheiro(request.form['valor_venda'])
         db.session.add(Peca(nome=request.form['nome'], marca=request.form.get('marca', ''), numero_serie=request.form.get('numero_serie', ''), valor_custo=custo, valor_venda=venda, quantidade=int(request.form['quantidade'])))
-        db.session.commit(); flash('Peça cadastrada!', 'success'); return redirect(url_for('estoque'))
+        db.session.commit()
+        flash('Peça cadastrada!', 'success')
+        return redirect(url_for('estoque'))
     search = request.args.get('search')
     lista = Peca.query.filter(Peca.nome.ilike(f'%{search}%') | Peca.numero_serie.ilike(f'%{search}%') | Peca.marca.ilike(f'%{search}%')).all() if search else Peca.query.all()
     return render_template('estoque.html', pecas=lista, search=search)
@@ -161,12 +189,23 @@ def editar_peca(id):
         peca.valor_custo = converter_dinheiro(request.form['valor_custo'])
         peca.valor_venda = converter_dinheiro(request.form['valor_venda'])
         peca.quantidade = int(request.form['quantidade'])
-        db.session.commit(); flash('Peça atualizada com sucesso!', 'success'); return redirect(url_for('estoque'))
+        db.session.commit()
+        flash('Peça atualizada com sucesso!', 'success')
+        return redirect(url_for('estoque'))
     return render_template('editar_peca.html', peca=peca)
 
 @app.route('/excluir_peca/<int:id>')
 @login_required
-def excluir_peca(id): db.session.delete(Peca.query.get_or_404(id)); db.session.commit(); flash('Removida!', 'success'); return redirect(url_for('estoque'))
+def excluir_peca(id): 
+    # TRAVA DE SEGURANÇA
+    if current_user.role != 'admin':
+        flash('Acesso negado!', 'danger')
+        return redirect(url_for('estoque'))
+        
+    db.session.delete(Peca.query.get_or_404(id))
+    db.session.commit()
+    flash('Removida!', 'success')
+    return redirect(url_for('estoque'))
 
 @app.route('/api/checar_equipamento')
 @login_required
@@ -185,10 +224,14 @@ def ordens():
         diag, preco = simular_ia(desc)
         nome_arq = None
         if 'foto_antes' in request.files and request.files['foto_antes'].filename != '':
-            nome_arq = secure_filename(request.files['foto_antes'].filename); request.files['foto_antes'].save(os.path.join(app.root_path, 'static', 'uploads', nome_arq))
-        # O preço da IA entra como um valor de "Mão de Obra Manual/Extra"
+            nome_arq = secure_filename(request.files['foto_antes'].filename)
+            request.files['foto_antes'].save(os.path.join(app.root_path, 'static', 'uploads', nome_arq))
+        
         db.session.add(OrdemServico(equipamento=request.form.get('equipamento'), marca=request.form.get('marca'), tipo_manutencao=request.form.get('tipo_manutencao'), descricao_problema=desc, diagnostico_ia=diag, valor=preco, cliente_id=request.form.get('cliente_id'), foto_antes=nome_arq, status='Aberto'))
-        db.session.commit(); flash('Ordem gerada!', 'success'); return redirect(url_for('ordens'))
+        db.session.commit()
+        flash('Ordem gerada!', 'success')
+        return redirect(url_for('ordens'))
+    
     search = request.args.get('search')
     query = OrdemServico.query.filter(OrdemServico.status != 'Finalizado')
     if search: query = query.filter(OrdemServico.equipamento.ilike(f'%{search}%') | OrdemServico.cliente.has(Cliente.nome.ilike(f'%{search}%')))
@@ -201,29 +244,25 @@ def ordens():
 @login_required
 def gerenciar_os(id):
     os_data = OrdemServico.query.get_or_404(id)
-    
-    if request.method == 'POST': # Atualizar o valor de mão de obra extra manualmente
+    if request.method == 'POST':
         os_data.valor = converter_dinheiro(request.form.get('valor_extra', '0'))
         db.session.commit()
-        flash('Mão de obra avulsa atualizada!', 'success')
+        flash('Atualizado!', 'success')
         return redirect(url_for('gerenciar_os', id=os_data.id))
 
     total_pecas = sum(i.valor_total for i in os_data.itens)
     total_servicos = sum(s.valor_cobrado for s in os_data.servicos_feitos)
     total_geral = (os_data.valor + total_servicos + total_pecas) - (os_data.desconto or 0.0)
-    
-    # Enviando o Catálogo de Serviços para a tela!
     catalogo = Servico.query.all()
-    
     return render_template('gerenciar_os.html', os_data=os_data, pecas=Peca.query.filter(Peca.quantidade > 0).all(), catalogo=catalogo, total_pecas=total_pecas, total_servicos=total_servicos, total_geral=total_geral)
 
-# --- ADICIONAR E REMOVER SERVIÇOS DA OS ---
 @app.route('/add_servico_os/<int:os_id>', methods=['POST'])
 @login_required
 def add_servico_os(os_id):
     servico = Servico.query.get_or_404(request.form.get('servico_id'))
     db.session.add(ItemServicoOS(os_id=os_id, servico_id=servico.id, nome_servico=servico.nome, valor_cobrado=servico.valor))
-    db.session.commit(); flash('Serviço adicionado ao orçamento!', 'success')
+    db.session.commit()
+    flash('Adicionado!', 'success')
     return redirect(url_for('gerenciar_os', id=os_id))
 
 @app.route('/remover_servico_os/<int:item_id>')
@@ -231,7 +270,8 @@ def add_servico_os(os_id):
 def remover_servico_os(item_id):
     item = ItemServicoOS.query.get_or_404(item_id)
     os_id = item.os_id
-    db.session.delete(item); db.session.commit(); flash('Serviço removido.', 'info')
+    db.session.delete(item)
+    db.session.commit()
     return redirect(url_for('gerenciar_os', id=os_id))
 
 @app.route('/add_item_os/<int:os_id>', methods=['POST'])
@@ -239,50 +279,80 @@ def remover_servico_os(item_id):
 def add_item_os(os_id):
     peca = Peca.query.get_or_404(request.form.get('peca_id'))
     qtd = int(request.form.get('quantidade', 1))
-    if peca.quantidade < qtd: flash('Estoque insuficiente!', 'danger'); return redirect(url_for('gerenciar_os', id=os_id))
+    if peca.quantidade < qtd: 
+        flash('Estoque insuficiente!', 'danger')
+        return redirect(url_for('gerenciar_os', id=os_id))
     peca.quantidade -= qtd
     db.session.add(ItemOS(os_id=os_id, peca_id=peca.id, quantidade=qtd, valor_unitario=peca.valor_venda, valor_total=(peca.valor_venda * qtd), nome_peca=peca.nome))
-    db.session.commit(); flash('Peça adicionada!', 'success'); return redirect(url_for('gerenciar_os', id=os_id))
+    db.session.commit()
+    flash('Adicionado!', 'success')
+    return redirect(url_for('gerenciar_os', id=os_id))
 
 @app.route('/remover_item_os/<int:item_id>')
 @login_required
 def remover_item_os(item_id):
     item = ItemOS.query.get_or_404(item_id)
     if item.peca: item.peca.quantidade += item.quantidade
-    db.session.delete(item); db.session.commit(); flash('Peça removida e devolvida.', 'info'); return redirect(url_for('gerenciar_os', id=item.os_id))
+    os_id = item.os_id
+    db.session.delete(item)
+    db.session.commit()
+    return redirect(url_for('gerenciar_os', id=os_id))
 
 @app.route('/aplicar_desconto/<int:os_id>', methods=['POST'])
 @login_required
 def aplicar_desconto(os_id):
     os_data = OrdemServico.query.get_or_404(os_id)
     os_data.desconto = converter_dinheiro(request.form.get('desconto', '0'))
-    db.session.commit(); flash('Desconto aplicado com sucesso!', 'success'); return redirect(url_for('gerenciar_os', id=os_id))
+    db.session.commit()
+    return redirect(url_for('gerenciar_os', id=os_id))
 
 @app.route('/atualizar_status/<int:id>', methods=['POST'])
 @login_required
-def atualizar_status(id): ordem = OrdemServico.query.get_or_404(id); ordem.status = request.form.get('status'); db.session.commit(); flash('Atualizado!', 'info'); return redirect(url_for('ordens'))
+def atualizar_status(id): 
+    ordem = OrdemServico.query.get_or_404(id)
+    ordem.status = request.form.get('status')
+    db.session.commit()
+    return redirect(url_for('ordens'))
 
 @app.route('/finalizar_os/<int:os_id>')
 @login_required
-def finalizar_os(os_id): os_data = OrdemServico.query.get_or_404(os_id); os_data.status = 'Finalizado'; os_data.data_garantia = datetime.now() + timedelta(days=90); db.session.commit(); flash('Entregue!', 'success'); return redirect(url_for('ordens'))
+def finalizar_os(os_id): 
+    os_data = OrdemServico.query.get_or_404(os_id)
+    os_data.status = 'Finalizado'
+    os_data.data_garantia = datetime.now() + timedelta(days=90)
+    db.session.commit()
+    return redirect(url_for('ordens'))
 
 @app.route('/excluir_os/<int:id>')
 @login_required
-def excluir_os(id): db.session.delete(OrdemServico.query.get_or_404(id)); db.session.commit(); flash('Excluída!', 'success'); return redirect(url_for('ordens'))
+def excluir_os(id):
+    # TRAVA DE SEGURANÇA
+    if current_user.role != 'admin':
+        flash('Acesso negado: Apenas administradores podem excluir OS!', 'danger')
+        return redirect(url_for('ordens'))
+        
+    db.session.delete(OrdemServico.query.get_or_404(id))
+    db.session.commit()
+    flash('Excluída!', 'success')
+    return redirect(url_for('ordens'))
 
 @app.route('/historico')
 @login_required
-def historico(): return render_template('historico.html', ordens=OrdemServico.query.filter_by(status='Finalizado').order_by(OrdemServico.id.desc()).all(), hoje=datetime.now())
+def historico(): 
+    return render_template('historico.html', ordens=OrdemServico.query.filter_by(status='Finalizado').order_by(OrdemServico.id.desc()).all(), hoje=datetime.now())
 
 @app.route('/relatorios', methods=['GET'])
 @login_required
 def relatorios():
+    # TRAVA DE SEGURANÇA NO FINANCEIRO
+    if current_user.role != 'admin':
+        flash('Acesso restrito ao Financeiro!', 'danger')
+        return redirect(url_for('dashboard'))
+
     mes_atual = datetime.now().strftime('%Y-%m')
     filtro_mes = request.args.get('mes', mes_atual)
-    
     ordens = OrdemServico.query.filter(OrdemServico.status == 'Finalizado', OrdemServico.data_abertura.like(f'{filtro_mes}%')).all()
     
-    # Soma de Mão de Obra Avulsa + Serviços do Catálogo
     receita_servicos = sum((o.valor + sum(s.valor_cobrado for s in o.servicos_feitos)) for o in ordens)
     receita_pecas = sum(item.valor_total for o in ordens for item in o.itens)
     custo_pecas = sum((item.peca.valor_custo * item.quantidade) for o in ordens for item in o.itens if item.peca)
@@ -291,16 +361,15 @@ def relatorios():
     faturamento_bruto = receita_servicos + receita_pecas - descontos
     lucro_liquido = faturamento_bruto - custo_pecas
 
-    financeiro = {
-        'servicos': receita_servicos, 'venda_pecas': receita_pecas, 'descontos': descontos,
-        'faturamento': faturamento_bruto, 'custo_pecas': custo_pecas, 'lucro': lucro_liquido
-    }
-    
+    financeiro = {'servicos': receita_servicos, 'venda_pecas': receita_pecas, 'descontos': descontos, 'faturamento': faturamento_bruto, 'custo_pecas': custo_pecas, 'lucro': lucro_liquido}
     return render_template('relatorios.html', ordens=ordens, financeiro=financeiro, mes_selecionado=filtro_mes)
 
 @app.route('/relatorio_pdf')
 @login_required
 def relatorio_pdf():
+    if current_user.role != 'admin':
+        return redirect(url_for('dashboard'))
+
     filtro_mes = request.args.get('mes', datetime.now().strftime('%Y-%m'))
     ordens = OrdemServico.query.filter(OrdemServico.status == 'Finalizado', OrdemServico.data_abertura.like(f'{filtro_mes}%')).all()
     
@@ -311,13 +380,13 @@ def relatorio_pdf():
     faturamento_bruto = receita_servicos + receita_pecas - descontos
     lucro_liquido = faturamento_bruto - custo_pecas
 
-    pdf = FPDF(); pdf.add_page(); pdf.set_fill_color(43, 45, 66); pdf.rect(0, 0, 210, 30, 'F')
+    pdf = FPDF(); pdf.add_page()
+    pdf.set_fill_color(37, 99, 235); pdf.rect(0, 0, 210, 30, 'F')
     pdf.set_font("helvetica", 'B', 18); pdf.set_text_color(255, 255, 255)
     pdf.cell(0, 15, f"Relatorio Financeiro - {filtro_mes}", align='C', new_x="LMARGIN", new_y="NEXT")
     
     pdf.ln(15); pdf.set_text_color(0, 0, 0); pdf.set_font("helvetica", 'B', 12)
     pdf.cell(0, 8, "RESUMO DO MES:", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 11)
-    
     pdf.cell(0, 6, f"Total de Servicos (Mao de Obra): R$ {format_moeda(receita_servicos)}", new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 6, f"Total de Pecas Vendidas: R$ {format_moeda(receita_pecas)}", new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(255, 0, 0); pdf.cell(0, 6, f"Descontos Concedidos: - R$ {format_moeda(descontos)}", new_x="LMARGIN", new_y="NEXT")
@@ -328,12 +397,6 @@ def relatorio_pdf():
     pdf.set_text_color(0, 128, 0)
     pdf.cell(0, 8, f"LUCRO LIQUIDO REAL: R$ {format_moeda(lucro_liquido)}", new_x="LMARGIN", new_y="NEXT")
     
-    pdf.ln(10); pdf.set_text_color(0, 0, 0); pdf.set_font("helvetica", 'B', 10)
-    pdf.cell(0, 8, "LISTA DE EQUIPAMENTOS ENTREGUES:", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 9)
-    for o in ordens:
-        total_os = (o.valor + sum(s.valor_cobrado for s in o.servicos_feitos) + sum(i.valor_total for i in o.itens)) - (o.desconto or 0)
-        pdf.cell(0, 6, f"OS #{o.id} | {o.cliente.nome} | {o.equipamento} | Total: R$ {format_moeda(total_os)}", border=1, new_x="LMARGIN", new_y="NEXT")
-
     buf = io.BytesIO(pdf.output()); buf.seek(0)
     return send_file(buf, as_attachment=True, download_name=f"Financeiro_{filtro_mes}.pdf", mimetype='application/pdf')
 
@@ -341,55 +404,104 @@ def relatorio_pdf():
 @login_required
 def gerar_pdf(os_id):
     os_data = OrdemServico.query.get_or_404(os_id)
-    pdf = FPDF(); pdf.add_page(); pdf.set_fill_color(255, 133, 161); pdf.rect(0, 0, 210, 40, 'F'); pdf.set_font("helvetica", 'B', 20); pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 20, "InfraControl - Relatorio Tecnico", align='C', new_x="LMARGIN", new_y="NEXT"); pdf.ln(25); pdf.set_text_color(0, 0, 0); pdf.set_font("helvetica", 'B', 12)
-    pdf.cell(0, 10, f"Protocolo: #{os_data.id} | Status: {os_data.status}", new_x="LMARGIN", new_y="NEXT")
+    pdf = FPDF(); pdf.add_page()
+    pdf.set_fill_color(30, 41, 59); pdf.rect(0, 0, 210, 45, 'F')
+    pdf.set_font("helvetica", 'B', 24); pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 15, "ORDEM DE SERVICO", align='C', new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", '', 10)
+    pdf.cell(0, 5, "Relatorio Tecnico de Manutencao", align='C', new_x="LMARGIN", new_y="NEXT")
     
-    marca_t = os_data.marca if os_data.marca else "N/A"
-    tipo_t = os_data.tipo_manutencao if os_data.tipo_manutencao else "N/A"
-    pdf.multi_cell(190, 10, f"Cliente: {os_data.cliente.nome}\nEquipamento: {os_data.equipamento} ({marca_t})\nTipo: {tipo_t}\nDiagnostico: {os_data.diagnostico_ia}", border=1)
+    pdf.ln(20); pdf.set_text_color(0, 0, 0); pdf.set_fill_color(241, 245, 249); pdf.set_font("helvetica", 'B', 11)
     
-    pdf.ln(5); pdf.set_font("helvetica", 'B', 10)
+    data_formatada = os_data.data_abertura.strftime('%d/%m/%Y') if os_data.data_abertura else "N/A"
+    pdf.cell(95, 10, f" PROTOCOLO: #{os_data.id}", border=0, fill=True)
+    pdf.cell(95, 10, f" DATA: {data_formatada}", border=0, fill=True, align='R', new_x="LMARGIN", new_y="NEXT")
     
-    # Lista de Serviços Feitos
-    if os_data.servicos_feitos or os_data.valor > 0:
-        pdf.cell(0, 8, "Servicos Executados:", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 10)
-        for s in os_data.servicos_feitos:
-            pdf.cell(0, 6, f"- {s.nome_servico} | R$ {format_moeda(s.valor_cobrado)}", new_x="LMARGIN", new_y="NEXT")
-        if os_data.valor > 0:
-            pdf.cell(0, 6, f"- Mao de Obra Avulsa | R$ {format_moeda(os_data.valor)}", new_x="LMARGIN", new_y="NEXT")
-
-    total_pecas = 0
-    if os_data.itens:
-        pdf.ln(3); pdf.set_font("helvetica", 'B', 10)
-        pdf.cell(0, 8, "Pecas Usadas (Estoque):", new_x="LMARGIN", new_y="NEXT"); pdf.set_font("helvetica", '', 10)
-        for item in os_data.itens:
-            pdf.cell(0, 6, f"- {item.quantidade}x {item.nome_peca} | R$ {format_moeda(item.valor_total)}", new_x="LMARGIN", new_y="NEXT")
-            total_pecas += item.valor_total
-
-    if os_data.desconto and os_data.desconto > 0:
-        pdf.ln(3); pdf.set_text_color(255, 0, 0); pdf.cell(0, 8, f"Desconto Aplicado: - R$ {format_moeda(os_data.desconto)}", new_x="LMARGIN", new_y="NEXT"); pdf.set_text_color(0, 0, 0)
-
-    total_servicos = sum(s.valor_cobrado for s in os_data.servicos_feitos)
-    total_geral = (os_data.valor + total_servicos + total_pecas) - (os_data.desconto or 0)
-
-    pdf.ln(5); pdf.set_font("helvetica", 'B', 14); pdf.cell(0, 10, f"TOTAL A PAGAR: R$ {format_moeda(total_geral)}", align='R', new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(5); pdf.set_font("helvetica", 'B', 12); pdf.cell(0, 10, "DADOS DO CLIENTE E EQUIPAMENTO", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", '', 11)
+    pdf.multi_cell(190, 8, f"Cliente: {os_data.cliente.nome}\nEquipamento: {os_data.equipamento}\nServico: {os_data.tipo_manutencao or 'N/A'}", border='B')
+    
+    pdf.ln(5); pdf.set_font("helvetica", 'B', 12); pdf.cell(0, 10, "DIAGNOSTICO TECNICO", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", 'I', 10); pdf.multi_cell(190, 7, os_data.diagnostico_ia, border=1, fill=True)
+    
     buf = io.BytesIO(pdf.output()); buf.seek(0)
     return send_file(buf, as_attachment=True, download_name=f"OS_{os_id}.pdf", mimetype='application/pdf')
+
+@app.route('/backup_sistema')
+@login_required
+def backup_sistema():
+    # TRAVA DE SEGURANÇA
+    if current_user.role != 'admin':
+        flash('Acesso negado!', 'danger')
+        return redirect(url_for('dashboard'))
+        
+    caminho_db = os.path.join(app.root_path, 'instance', 'infracontrol.db')
+    if not os.path.exists(caminho_db):
+        caminho_db = os.path.join(app.root_path, 'infracontrol.db')
+        
+    if os.path.exists(caminho_db):
+        return send_file(caminho_db, as_attachment=True, download_name=f"backup_infra_{datetime.now().strftime('%Y%m%d')}.db")
+    return redirect(url_for('dashboard'))
+
+# TELA DE GERENCIAR OS CRACHÁS
+@app.route('/usuarios', methods=['GET', 'POST'])
+@login_required
+def usuarios():
+    if current_user.role != 'admin':
+        flash('Acesso restrito!', 'danger')
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        role = request.form.get('role')
+
+        if User.query.filter_by(username=username).first():
+            flash('Usuário já existe!', 'danger')
+        else:
+            novo_user = User(username=username, password=generate_password_hash(password), role=role)
+            db.session.add(novo_user)
+            db.session.commit()
+            flash('Usuário cadastrado!', 'success')
+        return redirect(url_for('usuarios'))
+
+    return render_template('usuarios.html', usuarios=User.query.all())
+
+@app.route('/excluir_usuario/<int:id>')
+@login_required
+def excluir_usuario(id):
+    if current_user.role != 'admin':
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(id)
+    if user.username == 'admin':
+        flash('Você não pode excluir o chefe principal!', 'danger')
+    else:
+        db.session.delete(user)
+        db.session.commit()
+        flash('Usuário removido!', 'success')
+    return redirect(url_for('usuarios'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         user = User.query.filter_by(username=request.form['username']).first()
-        if user and check_password_hash(user.password, request.form['password']): login_user(user); return redirect(url_for('dashboard'))
-        flash('Inválido.', 'danger')
+        if user and check_password_hash(user.password, request.form['password']): 
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        flash('Usuário ou senha inválidos.', 'danger')
     return render_template('login.html')
 
 @app.route('/logout')
-def logout(): logout_user(); return redirect(url_for('login'))
+def logout(): 
+    logout_user()
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all() # Essa linha mágica cria as tabelas de Serviços sem apagar as antigas!
-        if not User.query.filter_by(username='admin').first(): db.session.add(User(username='admin', password=generate_password_hash('123'))); db.session.commit()
+        db.create_all()
+        # CRIA O CHEFE AUTOMATICAMENTE SE NÃO EXISTIR
+        if not User.query.filter_by(username='admin').first(): 
+            db.session.add(User(username='admin', password=generate_password_hash('123'), role='admin'))
+            db.session.commit()
     app.run(debug=True)

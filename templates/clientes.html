@@ -1,60 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 style="font-weight: 700; color: #333;">Gestão de Clientes</h2>
+    <h2 style="font-weight: 700; color: #333;">Meus Clientes</h2>
     
     <form class="d-flex w-50 mx-3" method="GET" action="{{ url_for('clientes') }}">
-        <input class="form-control me-2" type="search" name="search" placeholder="Buscar cliente por nome..." value="{{ search or '' }}" style="border-radius: 12px; border: 1px solid #ddd;">
+        <input class="form-control me-2" type="search" name="search" placeholder="Buscar cliente..." value="{{ search or '' }}" style="border-radius: 12px;">
         <button class="btn btn-outline-primary" type="submit" style="border-radius: 12px;">🔍</button>
-        {% if search %}
-            <a href="{{ url_for('clientes') }}" class="btn btn-outline-secondary ms-2" style="border-radius: 12px;" title="Limpar Busca">✖️</a>
-        {% endif %}
+        {% if search %}<a href="{{ url_for('clientes') }}" class="btn btn-outline-secondary ms-2" style="border-radius: 12px;">✖️</a>{% endif %}
     </form>
-
-    <button class="btn btn-primary" style="background: var(--primary); border: none; border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#addClient">
-        + Novo Cliente
-    </button>
+    
+    <button class="btn btn-primary px-4" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#newCliente">+ Novo Cliente</button>
 </div>
 
 <div class="card border-0 shadow-sm" style="border-radius: 20px; overflow: hidden;">
-    <table class="table table-hover m-0 text-center">
+    <table class="table table-hover m-0 align-middle text-center">
         <thead class="table-light">
             <tr>
-                <th class="p-3">Nome</th>
-                <th class="p-3">Email</th>
-                <th class="p-3">Telefone</th>
-                <th class="p-3">Ações</th>
+                <th class="ps-4 text-start">Nome do Cliente</th>
+                <th>Contatos</th>
+                <th>Ações</th>
             </tr>
         </thead>
         <tbody>
             {% for c in clientes %}
             <tr>
-                <td class="p-3"><strong>{{ c.nome }}</strong></td>
-                <td class="p-3">{{ c.email }}</td>
-                <td class="p-3">{{ c.telefone }}</td>
+                <td class="p-3 text-start ps-4 fw-bold" style="color: #333;">{{ c.nome }}</td>
                 <td class="p-3">
-                    <a href="{{ url_for('editar_cliente', id=c.id) }}" class="btn btn-sm btn-outline-warning" style="border-radius: 8px;">✏️ Editar</a>
-                    <a href="{{ url_for('excluir_cliente', id=c.id) }}" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;" onclick="return confirm('Excluir este cliente?')">🗑️ Excluir</a>
+                    <div class="text-muted small">📱 {{ c.telefone or 'Sem número' }}</div>
+                    <div class="text-muted small">✉️ {{ c.email or 'Sem email' }}</div>
+                </td>
+                <td class="p-3">
+                    <div class="btn-group gap-2 d-flex align-items-center justify-content-center">
+                        <a href="{{ url_for('editar_cliente', id=c.id) }}" class="btn btn-sm btn-outline-primary" style="border-radius: 8px;" title="Editar">✏️ Editar</a>
+                        
+                        {% if current_user.role == 'admin' %}
+                        <a href="{{ url_for('excluir_cliente', id=c.id) }}" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;" onclick="return confirm('Tem certeza que deseja excluir este cliente?')" title="Excluir">🗑️</a>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="4" class="p-5 text-muted">
-                {% if search %} Nenhum cliente encontrado com "{{ search }}". {% else %} Nenhum cliente cadastrado. {% endif %}
-            </td></tr>
+            <tr><td colspan="3" class="p-5 text-muted">Nenhum cliente cadastrado no momento.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<div class="modal fade" id="addClient" tabindex="-1">
+<div class="modal fade" id="newCliente" tabindex="-1">
     <div class="modal-dialog">
-        <form class="modal-content" method="POST" style="border-radius: 20px; border: none;">
+        <form class="modal-content" method="POST" action="{{ url_for('clientes') }}" style="border-radius: 25px; border: none;">
             <div class="modal-body p-4">
                 <h4 class="mb-4" style="color: var(--primary); font-weight: 800;">Cadastrar Cliente</h4>
-                <input type="text" name="nome" class="form-control mb-3" placeholder="Nome Completo" required>
-                <input type="email" name="email" class="form-control mb-3" placeholder="E-mail">
-                <input type="text" name="telefone" class="form-control mb-3" placeholder="Telefone">
-                <button type="submit" class="btn btn-primary w-100" style="background: var(--primary); border: none; border-radius: 10px;">Salvar</button>
+                
+                <div class="mb-3">
+                    <label class="form-label text-muted fw-bold" style="font-size: 0.9rem;">Nome Completo *</label>
+                    <input type="text" name="nome" class="form-control" required style="border-radius: 10px;">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label text-muted fw-bold" style="font-size: 0.9rem;">WhatsApp</label>
+                    <input type="text" name="telefone" class="form-control" placeholder="(00) 00000-0000" style="border-radius: 10px;">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label text-muted fw-bold" style="font-size: 0.9rem;">E-mail</label>
+                    <input type="email" name="email" class="form-control" placeholder="cliente@email.com" style="border-radius: 10px;">
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold" style="border-radius: 10px; font-size: 1.1rem;">Salvar Cliente</button>
             </div>
         </form>
     </div>

@@ -1,15 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 style="font-weight: 700; color: #333;">📦 Estoque e Almoxarifado</h2>
+    <h2 style="font-weight: 700; color: #333;"><i class="bi bi-box-seam" style="color: var(--primary-dark);"></i> Estoque e Almoxarifado</h2>
     
     <form class="d-flex w-50 mx-3" method="GET" action="{{ url_for('estoque') }}">
         <input class="form-control me-2" type="search" name="search" placeholder="Buscar peça ou S/N..." value="{{ search or '' }}" style="border-radius: 12px;">
-        <button class="btn btn-outline-primary" type="submit" style="border-radius: 12px;">🔍</button>
-        {% if search %}<a href="{{ url_for('estoque') }}" class="btn btn-outline-secondary ms-2" style="border-radius: 12px;">✖️</a>{% endif %}
+        <button class="btn btn-outline-primary" type="submit" style="border-radius: 12px;"><i class="bi bi-search"></i></button>
+        {% if search %}<a href="{{ url_for('estoque') }}" class="btn btn-outline-secondary ms-2" style="border-radius: 12px;"><i class="bi bi-x-lg"></i></a>{% endif %}
     </form>
 
-    <button class="btn btn-primary px-4 fw-bold" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#newPeca">+ Cadastrar Peça</button>
+    {% if current_user.role == 'admin' %}
+    <button class="btn btn-primary px-4 fw-bold d-flex align-items-center gap-2" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#newPeca">
+        <i class="bi bi-plus-lg"></i> Cadastrar Peça
+    </button>
+    {% endif %}
 </div>
 
 <div class="card border-0 shadow-sm" style="border-radius: 20px; overflow: hidden;">
@@ -33,7 +37,8 @@
                     <small>S/N: {{ p.numero_serie if p.numero_serie else 'N/A' }}</small>
                 </td>
                 <td class="p-3 text-danger">R$ {{ p.valor_custo | moeda }}</td>
-                <td class="p-3 fw-bold" style="color: var(--primary);">R$ {{ p.valor_venda | moeda }}</td>
+                <td class="p-3 fw-bold" style="color: var(--primary-dark);">R$ {{ p.valor_venda | moeda }}</td>
+                
                 <td class="p-3">
                     {% if p.quantidade <= 2 %}
                         <span class="badge bg-danger p-2" style="border-radius: 8px;">{{ p.quantidade }} UN (Baixo)</span>
@@ -41,10 +46,14 @@
                         <span class="badge bg-primary p-2" style="border-radius: 8px;">{{ p.quantidade }} UN</span>
                     {% endif %}
                 </td>
+                
                 <td class="p-3">
                     <div class="btn-group gap-2 d-flex justify-content-center">
-                        <a href="{{ url_for('editar_peca', id=p.id) }}" class="btn btn-sm btn-outline-primary" style="border-radius: 8px;" title="Editar">✏️</a>
-                        <a href="{{ url_for('excluir_peca', id=p.id) }}" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;" onclick="return confirm('Excluir esta peça do estoque?')" title="Excluir">🗑️</a>
+                        <a href="{{ url_for('editar_peca', id=p.id) }}" class="btn btn-sm btn-outline-primary" style="border-radius: 8px;" title="Editar"><i class="bi bi-pencil-square"></i></a>
+                        
+                        {% if current_user.role == 'admin' %}
+                        <a href="{{ url_for('excluir_peca', id=p.id) }}" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;" onclick="return confirm('Excluir esta peça do estoque?')" title="Excluir"><i class="bi bi-trash3"></i></a>
+                        {% endif %}
                     </div>
                 </td>
             </tr>
@@ -59,7 +68,7 @@
     <div class="modal-dialog">
         <form class="modal-content" method="POST" style="border-radius: 25px; border: none;">
             <div class="modal-body p-4">
-                <h4 class="mb-4" style="color: var(--primary); font-weight: 800;">Cadastrar Nova Peça</h4>
+                <h4 class="mb-4" style="color: var(--primary-dark); font-weight: 800;"><i class="bi bi-box-fill"></i> Cadastrar Nova Peça</h4>
                 
                 <input type="text" name="nome" class="form-control mb-3" placeholder="Nome da Peça (Ex: SSD 500GB NVMe)" required>
                 
@@ -75,7 +84,7 @@
                     </div>
                     <div class="col">
                         <label class="form-label text-muted fw-bold mb-0"><small>Valor de Venda (R$)</small></label>
-                        <input type="text" name="valor_venda" class="form-control fw-bold" style="color: var(--primary);" placeholder="0,00" required>
+                        <input type="text" name="valor_venda" class="form-control fw-bold" style="color: var(--primary-dark);" placeholder="0,00" required>
                     </div>
                     <div class="col">
                         <label class="form-label text-muted fw-bold mb-0"><small>Qtd. Inicial</small></label>
@@ -83,7 +92,9 @@
                     </div>
                 </div>
                 
-                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold" style="border-radius: 10px;">💾 Salvar no Estoque</button>
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2" style="border-radius: 10px;">
+                    <i class="bi bi-floppy-fill"></i> Salvar no Estoque
+                </button>
             </div>
         </form>
     </div>

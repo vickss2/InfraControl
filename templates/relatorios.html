@@ -1,49 +1,50 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 style="font-weight: 700; color: #333;">📈 Financeiro e Relatórios</h2>
+    <h2 style="font-weight: 700; color: var(--text-dark);"><i class="bi bi-graph-up-arrow" style="color: var(--primary-dark);"></i> Financeiro e Relatórios</h2>
     
     <form class="d-flex align-items-center gap-2" method="GET" action="{{ url_for('relatorios') }}">
-        <label class="fw-bold text-muted">Filtrar por Mês:</label>
+        <label class="fw-bold text-muted"><i class="bi bi-calendar3"></i> Filtrar Mês:</label>
         <input type="month" name="mes" class="form-control" value="{{ mes_selecionado }}" required style="border-radius: 10px;">
-        <button type="submit" class="btn btn-primary fw-bold" style="border-radius: 10px;">Filtrar</button>
-        <a href="{{ url_for('relatorio_pdf', mes=mes_selecionado) }}" class="btn btn-danger fw-bold ms-2" style="border-radius: 10px;">📄 Imprimir PDF</a>
+        <button type="submit" class="btn btn-primary fw-bold" style="border-radius: 10px;"><i class="bi bi-search"></i> Filtrar</button>
+        <a href="{{ url_for('relatorio_pdf', mes=mes_selecionado) }}" class="btn btn-danger fw-bold ms-2 d-flex align-items-center gap-2" style="border-radius: 10px;">
+            <i class="bi bi-filetype-pdf"></i> Imprimir PDF
+        </a>
     </form>
 </div>
 
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 15px; border-bottom: 5px solid #ffb3c6;">
-            <h6 class="text-muted fw-bold">Mão de Obra</h6>
-            <h4 class="fw-bold" style="color: #333;">R$ {{ "%.2f"|format(financeiro.servicos) }}</h4>
-        </div>
-    </div>
-    <div class="col-md-3">
         <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 15px; border-bottom: 5px solid var(--primary);">
-            <h6 class="text-muted fw-bold">Venda de Peças</h6>
-            <h4 class="fw-bold" style="color: #333;">R$ {{ "%.2f"|format(financeiro.venda_pecas) }}</h4>
-            <small class="text-danger mt-1">Custo: -R$ {{ "%.2f"|format(financeiro.custo_pecas) }}</small>
+            <h6 class="text-muted fw-bold"><i class="bi bi-person-workspace"></i> Mão de Obra</h6>
+            <h4 class="fw-bold" style="color: var(--text-dark);">R$ {{ financeiro.servicos | moeda }}</h4>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 15px; border-bottom: 5px solid #ff4d6d;">
-            <h6 class="text-muted fw-bold">Faturamento Bruto</h6>
-            <h4 class="fw-bold" style="color: #333;">R$ {{ "%.2f"|format(financeiro.faturamento) }}</h4>
-            <small class="text-danger mt-1">Descontos: -R$ {{ "%.2f"|format(financeiro.descontos) }}</small>
+        <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 15px; border-bottom: 5px solid var(--primary-dark);">
+            <h6 class="text-muted fw-bold"><i class="bi bi-box-seam"></i> Venda de Peças</h6>
+            <h4 class="fw-bold" style="color: var(--text-dark);">R$ {{ financeiro.venda_pecas | moeda }}</h4>
+            <small class="text-danger mt-1">Custo: -R$ {{ financeiro.custo_pecas | moeda }}</small>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 15px; background-color: var(--primary); color: white;">
-            <h6 class="fw-bold text-white">LUCRO LÍQUIDO</h6>
-            <h3 class="fw-bold text-white">R$ {{ "%.2f"|format(financeiro.lucro) }}</h3>
-            <small class="text-white mt-1" style="opacity: 0.8;">(Receita - Custo das Peças)</small>
+        <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 15px; border-bottom: 5px solid #1e3a8a;"> <h6 class="text-muted fw-bold"><i class="bi bi-cash-stack"></i> Faturamento Bruto</h6>
+            <h4 class="fw-bold" style="color: var(--text-dark);">R$ {{ financeiro.faturamento | moeda }}</h4>
+            <small class="text-danger mt-1">Descontos: -R$ {{ financeiro.descontos | moeda }}</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-3 text-center" style="border-radius: 15px; background-color: var(--primary-dark); color: white;">
+            <h6 class="fw-bold text-white"><i class="bi bi-piggy-bank-fill"></i> LUCRO LÍQUIDO</h6>
+            <h3 class="fw-bold text-white">R$ {{ financeiro.lucro | moeda }}</h3>
+            <small class="text-white mt-1" style="opacity: 0.8;">(Receita - Custo Peças)</small>
         </div>
     </div>
 </div>
 
 <div class="card border-0 shadow-sm" style="border-radius: 20px; overflow: hidden;">
     <div class="card-header bg-white p-3 border-0">
-        <h5 class="fw-bold m-0" style="color: #333;">Equipamentos Finalizados ({{ mes_selecionado }})</h5>
+        <h5 class="fw-bold m-0" style="color: var(--text-dark);"><i class="bi bi-check2-circle text-success"></i> Equipamentos Finalizados ({{ mes_selecionado }})</h5>
     </div>
     <table class="table table-hover m-0 align-middle text-center">
         <thead class="table-light"><tr><th>Protocolo</th><th>Cliente</th><th>Equipamento</th><th>Total Arrecadado</th></tr></thead>
@@ -53,9 +54,10 @@
                 <td class="p-3 text-muted fw-bold">#{{ o.id }}</td>
                 <td class="p-3"><strong>{{ o.cliente.nome }}</strong></td>
                 <td class="p-3">{{ o.equipamento }}</td>
-                <td class="p-3 fw-bold" style="color: var(--primary);">
-                    {% set soma_pecas = 0 %}{% for i in o.itens %}{% set soma_pecas = soma_pecas + i.valor_total %}{% endfor %}
-                    R$ {{ "%.2f"|format((o.valor + soma_pecas) - (o.desconto or 0)) }}
+                <td class="p-3 fw-bold" style="color: var(--primary-dark);">
+                    {% set soma_pecas = o.itens | map(attribute='valor_total') | sum %}
+                    {% set soma_servicos = o.servicos_feitos | map(attribute='valor_cobrado') | sum %}
+                    R$ {{ ((o.valor + soma_servicos + soma_pecas) - (o.desconto or 0)) | moeda }}
                 </td>
             </tr>
             {% else %}<tr><td colspan="4" class="p-5 text-muted">Nenhum conserto finalizado neste mês.</td></tr>{% endfor %}

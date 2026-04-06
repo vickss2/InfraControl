@@ -75,11 +75,19 @@
                 <p class="mb-1 text-muted">Subtotal Serviços (Catálogo + Extra): R$ {{ (total_servicos + os_data.valor) | moeda }}</p>
                 <p class="mb-1 text-muted">Subtotal Peças: R$ {{ total_pecas | moeda }}</p>
                 
+                {% if current_user.role == 'admin' %}
                 <form action="{{ url_for('aplicar_desconto', os_id=os_data.id) }}" method="POST" class="d-flex justify-content-end align-items-center mb-2 mt-2 gap-2">
                     <label class="text-danger fw-bold m-0"><small>Desconto (R$):</small></label>
                     <input type="text" name="desconto" value="{{ os_data.desconto | moeda if os_data.desconto else '0,00' }}" class="form-control form-control-sm text-end" style="width: 100px; border-radius: 8px;">
                     <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;">Aplicar</button>
                 </form>
+                {% else %}
+                <div class="d-flex justify-content-end align-items-center mb-2 mt-2 gap-2">
+                    <label class="text-danger fw-bold m-0"><small>Desconto:</small></label>
+                    <span class="text-danger fw-bold" style="width: 100px;">R$ {{ os_data.desconto | moeda if os_data.desconto else '0,00' }}</span>
+                    <span class="badge bg-secondary" style="border-radius: 8px;" title="Apenas gerentes podem aplicar descontos.">🔒 Restrito</span>
+                </div>
+                {% endif %}
                 <hr>
                 <h3 class="fw-bold m-0" style="color: #333;">Total a Pagar: <span style="color: var(--primary);">R$ {{ total_geral | moeda }}</span></h3>
             </div>

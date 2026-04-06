@@ -1,26 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 style="font-weight: 700; color: #333;">📊 Visão Geral do Sistema</h2>
+    <h2 style="font-weight: 700; color: var(--text-dark);"><i class="bi bi-grid-1x2-fill" style="color: var(--primary-dark);"></i> Visão Geral do Sistema</h2>
 </div>
 
 <div class="row mb-4">
     <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 text-center" style="border-radius: 15px; border-bottom: 5px solid var(--primary-dark);">
+            <h6 class="text-muted fw-bold"><i class="bi bi-people-fill"></i> Clientes Cadastrados</h6>
+            <h3 class="fw-bold" style="color: var(--text-dark);">{{ stats.c }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
         <div class="card border-0 shadow-sm p-4 text-center" style="border-radius: 15px; border-bottom: 5px solid var(--primary);">
-            <h6 class="text-muted fw-bold">Clientes Cadastrados</h6>
-            <h3 class="fw-bold" style="color: #333;">{{ stats.c }}</h3>
+            <h6 class="text-muted fw-bold"><i class="bi bi-tools"></i> Ordens em Andamento</h6>
+            <h3 class="fw-bold" style="color: var(--text-dark);">{{ stats.oa }}</h3>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm p-4 text-center" style="border-radius: 15px; border-bottom: 5px solid #ffb3c6;">
-            <h6 class="text-muted fw-bold">Ordens em Andamento</h6>
-            <h3 class="fw-bold" style="color: #333;">{{ stats.oa }}</h3>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm p-4 text-center" style="border-radius: 15px; background-color: var(--primary); color: white;">
-            <h6 class="fw-bold text-white">Faturamento Bruto (Geral)</h6>
-            <h3 class="fw-bold text-white">R$ {{ stats.f | moeda }}</h3>
+        <div class="card border-0 shadow-sm p-4 text-center" style="border-radius: 15px; background-color: var(--primary-dark); color: white;">
+            {% if current_user.role == 'admin' %}
+                <h6 class="fw-bold text-white"><i class="bi bi-cash-stack"></i> Faturamento Bruto (Geral)</h6>
+                <h3 class="fw-bold text-white">R$ {{ stats.f | moeda }}</h3>
+            {% else %}
+                <h6 class="fw-bold text-white"><i class="bi bi-shield-lock-fill"></i> Financeiro</h6>
+                <h3 class="fw-bold text-white mt-2" style="font-size: 1.2rem;">Acesso Restrito</h3>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -28,18 +33,22 @@
 <div class="row">
     <div class="col-md-8">
         <div class="card border-0 shadow-sm p-4" style="border-radius: 20px;">
-            <h5 class="fw-bold mb-3" style="color: #333;">📈 Categorias de Manutenção</h5>
+            <h5 class="fw-bold mb-3" style="color: var(--text-dark);"><i class="bi bi-bar-chart-fill" style="color: var(--primary-dark);"></i> Categorias de Manutenção</h5>
             <canvas id="graficoCategorias" height="100"></canvas>
         </div>
     </div>
     
     <div class="col-md-4">
         <div class="card border-0 shadow-sm p-4 text-center d-flex flex-column justify-content-center" style="border-radius: 20px; height: 100%;">
-            <h5 class="fw-bold mb-3" style="color: #333;">⭐ Avaliação Média</h5>
-            <h1 class="display-1 fw-bold" style="color: var(--primary);">{{ media_estrelas }}</h1>
-            <div class="text-warning fs-3">
+            <h5 class="fw-bold mb-3" style="color: #333;"><i class="bi bi-award-fill" style="color: #2563eb;"></i> Avaliação Média</h5>
+            <h1 class="display-1 fw-bold" style="color: #333;">{{ media_estrelas }}</h1>
+            <div class="text-warning fs-3 mb-2">
                 {% for i in range(5) %}
-                    {% if i < media_estrelas|round|int %}★{% else %}☆{% endif %}
+                    {% if i < media_estrelas|round|int %}
+                        <i class="bi bi-star-fill"></i>
+                    {% else %}
+                        <i class="bi bi-star"></i>
+                    {% endif %}
                 {% endfor %}
             </div>
             <p class="text-muted mt-2 mb-0"><small>Nota média dada pelos clientes</small></p>
@@ -57,7 +66,7 @@
             datasets: [{
                 label: 'Quantidade de Serviços',
                 data: {{ values | safe }},
-                backgroundColor: '#ff85a1',
+                backgroundColor: '#2563eb',
                 borderRadius: 8
             }]
         },
